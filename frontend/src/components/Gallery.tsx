@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { tourService } from '../services/tourService'; // Import the service object
+import { getCuratedTours } from '../services/tourService'; // Import the function directly
 import { Search, MapPin, Loader2 } from 'lucide-react';
 
 // Define types locally since there are import issues
@@ -25,8 +25,8 @@ const Gallery: React.FC = () => {
   useEffect(() => {
     const fetchTours = async () => {
       try {
-        // Use the existing getCuratedTours function
-        const toursData = await tourService.getCuratedTours();
+        // Use the getCuratedTours function directly
+        const toursData = await getCuratedTours();
         
         // Map the data to GalleryTour format
         const mappedTours: GalleryTour[] = toursData.map((item: any) => ({
