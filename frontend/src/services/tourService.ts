@@ -1,39 +1,52 @@
 import { supabase } from '../lib/supabaseClient';
 
-// Add this helper at the top
 const BUCKET_URL = 'https://gmcyxgjmlrytrwqgrona.supabase.co/storage/v1/object/public/website-assets/';
 
-// Map tour IDs to their actual image filenames in your bucket
-const tourImageMap: Record<number, string> = {
-  1: 'bali-swing.jpg',
-  2: 'alas-harum-cave-tubing.jpg',
-  3: 'tlaga-singha-ubud.jpg',
-  4: 'ubud-private-customized.jpg',
-  5: 'ubud-buggy-cultural.jpg',
-  6: 'cretya-ubud.jpg', 
-  7: 'ubud-jungle-cart-volcano.jpg',
-  8: 'sunset-sailboat-ubud.jpg',
-  9: 'cretya-ubud-atv-gorilla.jpg',
-  10: 'temple-bathing-batur-rice.jpg',
-  11: 'sailor-cruise-ubud.jpg',
-  12: 'northern-bali-highlights.jpg',
-  13: 'bali-historical-mother-temple.jpg',
-  14: 'nusa-penida-snorkeling.jpg',
-  15: 'ulun-danu-temple.jpg', // Your signature tour
-  16: 'uluwatu-sunset-kecak.jpg',
-  17: 'tanah-lot.jpg', 
-  18: 'ubud-atv-350cc-gorilla.jpg',
-  19: 'monkey-bar-snorkeling.jpg',
-  20: 'mount-batur-sunrise-trek.jpg',
-  21: 'telaga-waja-rafting.jpg',
-  22: 'bali-swing.jpg', // Your signature tour
+const getTourImageUrl = (tourId: number, imageUrl?: string | null): string => {
+  if (imageUrl) return imageUrl;
+  return `${BUCKET_URL}/tours/${tourId}.jpg`;
 };
 
-const getTourImageUrl = (tourId: number): string => {
-  const filename = tourImageMap[tourId] || `${tourId}.jpg`;
-  return `${BUCKET_URL}/tours/${filename}`;
-};
+// ─── Shared tour mapper — single source of truth ───────────────────────────
+const mapTour = (item: any): Tour => ({
+  id: Number(item.id),
+  title: String(item.title || ''),
+  category: item.category ?? null,
+  image: getTourImageUrl(item.id, item.image_url),
+  image_alt: item.image_alt || String(item.title || ''),
+  price: `From $${item.starting_price || 0}`,
+  duration: String(item.duration || 'Full Day'),
+  overview: String(item.short_description || item.overview || ''),
+  highlights: Array.isArray(item.highlights) ? item.highlights : [],
+  itinerary: Array.isArray(item.itinerary) ? item.itinerary : [],
+  inclusions: Array.isArray(item.inclusions) ? item.inclusions : [],
+  exclusions: Array.isArray(item.exclusions) ? item.exclusions : [],
+  featured: item.featured || false,
+  featured_reason: item.featured_reason ?? null,
+  rating: item.rating || 4.9,
+  reviews: item.reviews || 0,
+  starting_price: item.starting_price,
+  short_description: item.short_description,
+  slug: item.slug,
+  location: item.location,
+  category_id: item.category_id,
+  seo_title: item.seo_title || '',
+  seo_description: item.seo_description || '',
+  status: item.status || 'active',
+  activity_level: item.activity_level || 'moderate',
+  mood_tags: item.mood_tags || [],
+  max_group_size: item.max_group_size || 8,
+  created_at: item.created_at,
+  updated_at: item.updated_at,
+  images: [],
+  hotel_options: item.hotel_options || null,
+  notes: item.notes || null,
+});
 
+// ─── Shared category select fragment ───────────────────────────────────────
+const CATEGORY_SELECT = `*, category:tour_categories (id, name, slug, vibe)`;
+
+// ─── Interfaces ────────────────────────────────────────────────────────────
 export interface Tour {
   id: number;
   category_id: number;
@@ -41,7 +54,7 @@ export interface Tour {
   slug: string;
   short_description: string | null;
   overview?: string;
-  itinerary: string;
+  itinerary: any;
   inclusions: string[];
   exclusions: string[];
   duration: string;
@@ -65,6 +78,18 @@ export interface Tour {
   rating?: number;
   reviews?: number;
   highlights?: string[];
+  hotel_options?: { hotel: string; cost: string }[] | null;
+  notes?: string | null;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  vibe?: string;
+  hero_tagline?: string;
+  hero_image_url?: string | null;
 }
 
 export interface Adventure {
@@ -104,115 +129,79 @@ export interface Package {
   tours?: string[];
 }
 
+// ─── Categories ────────────────────────────────────────────────────────────
+
+export const getCategories = async (): Promise<Category[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('tour_categories')
+      .select('id, name, slug, description, vibe, hero_tagline, hero_image_url')
+      .eq('status', 'active')
+      .order('id', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return [];
+  }
+};
+
+export const getCategoryBySlug = async (slug: string): Promise<Category | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('tour_categories')
+      .select('id, name, slug, description, vibe, hero_tagline, hero_image_url')
+      .eq('slug', slug)
+      .eq('status', 'active')
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching category by slug:', error);
+    return null;
+  }
+};
+
+// ─── Tours ─────────────────────────────────────────────────────────────────
+
 export const getTours = async (): Promise<Tour[]> => {
   try {
     const { data, error } = await supabase
       .from('tours')
-      .select(`
-        *,
-        category:tour_categories (name, slug, vibe)
-      `)
+      .select(CATEGORY_SELECT)
       .eq('status', 'active')
       .order('featured', { ascending: false })
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
-    
-    const tours: Tour[] = (data || []).map((item: any) => {
-      let categoryName = 'Tour';
-      if (item.category) {
-        if (typeof item.category === 'object') {
-          categoryName = item.category.name || 'Tour';
-        } else {
-          categoryName = String(item.category);
-        }
-      }
-      
-      return {
-        id: Number(item.id),
-        title: String(item.title || ''),
-        category: categoryName as any,
-        image: item.image_url || getTourImageUrl(item.id),
-        image_alt: item.image_alt || String(item.title || ''),
-        price: `From $${item.starting_price || 0}`,
-        duration: String(item.duration || 'Full Day'),
-        overview: String(item.short_description || item.overview || ''),
-        highlights: Array.isArray(item.highlights) ? item.highlights : [],
-        itinerary: Array.isArray(item.itinerary) ? item.itinerary : [],
-        inclusions: Array.isArray(item.inclusions) ? item.inclusions : [],
-        exclusions: Array.isArray(item.exclusions) ? item.exclusions : [],
-        featured: item.featured || false,
-        rating: item.rating || 4.9,
-        reviews: item.reviews || 0,
-        starting_price: item.starting_price,
-        short_description: item.short_description,
-        slug: item.slug,
-        location: item.location,
-        category_id: item.category_id,
-        seo_title: item.seo_title || '',
-        seo_description: item.seo_description || '',
-        status: item.status || 'active',
-        featured_reason: item.featured_reason,
-        activity_level: item.activity_level || 'moderate',
-        mood_tags: item.mood_tags || [],
-        max_group_size: item.max_group_size || 8,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        category: item.category,
-        images: []
-      };
-    });
-    
-    return tours;
+    return (data || []).map(mapTour);
   } catch (error) {
     console.error('Error fetching tours:', error);
     return [];
   }
 };
 
-export const getAdventures = async (): Promise<Adventure[]> => {
+export const getToursByCategory = async (categorySlug: string): Promise<Tour[]> => {
   try {
+    // Step 1: resolve slug → id
+    const category = await getCategoryBySlug(categorySlug);
+    if (!category) return [];
+
+    // Step 2: fetch tours by category_id
     const { data, error } = await supabase
       .from('tours')
-      .select(`
-        *,
-        category:tour_categories!inner (name, slug, vibe)
-      `)
-      .eq('category.tour_categories.slug', 'adventures')
+      .select(CATEGORY_SELECT)
       .eq('status', 'active')
+      .eq('category_id', category.id)
       .order('featured', { ascending: false })
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
-    
-    const adventures: Adventure[] = (data || []).map((item: any) => {
-      let activityLevel: 'Easy' | 'Moderate' | 'Hard' = 'Moderate';
-      if (item.activity_level) {
-        const level = String(item.activity_level).toLowerCase();
-        if (level.includes('easy')) activityLevel = 'Easy';
-        else if (level.includes('hard') || level.includes('challenging')) activityLevel = 'Hard';
-      }
-      
-      return {
-        id: String(item.id),
-        title: String(item.title || ''),
-        category: 'Adventure',
-        icon: 'Zap',
-        image: getTourImageUrl(item.id),
-        activityLevel: activityLevel,
-        description: String(item.short_description || item.overview || ''),
-        price: `From $${item.starting_price || 0}`,
-        duration: String(item.duration || 'Full Day'),
-        highlights: Array.isArray(item.highlights) ? item.highlights : [],
-        itinerary: Array.isArray(item.itinerary) ? item.itinerary : [],
-        inclusions: Array.isArray(item.inclusions) ? item.inclusions : [],
-        exclusions: Array.isArray(item.exclusions) ? item.exclusions : []
-      };
-    });
-    
-    return adventures;
+    return (data || []).map(mapTour);
   } catch (error) {
-    console.error('Error fetching adventures:', error);
+    console.error('Error fetching tours by category:', error);
     return [];
   }
 };
@@ -221,63 +210,184 @@ export const getTourById = async (id: string): Promise<Tour | null> => {
   try {
     const { data, error } = await supabase
       .from('tours')
-      .select(`
-        *,
-        category:tour_categories (name, slug, vibe)
-      `)
+      .select(CATEGORY_SELECT)
       .eq('id', id)
       .eq('status', 'active')
       .single();
-    
+
     if (error) throw error;
     if (!data) return null;
-    
-    let categoryName = 'Tour';
-    if (data.category) {
-      if (typeof data.category === 'object') {
-        categoryName = data.category.name || 'Tour';
-      } else {
-        categoryName = String(data.category);
-      }
-    }
-    
-    return {
-      id: Number(data.id),
-      title: String(data.title || ''),
-      category: categoryName as any,
-      image: getTourImageUrl(data.id),
-      price: `From $${data.starting_price || 0}`,
-      duration: String(data.duration || 'Full Day'),
-      overview: String(data.short_description || data.overview || ''),
-      highlights: Array.isArray(data.highlights) ? data.highlights : [],
-      itinerary: Array.isArray(data.itinerary) ? data.itinerary : [],
-      inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
-      exclusions: Array.isArray(data.exclusions) ? data.exclusions : [],
-      featured: data.featured || false,
-      rating: data.rating || 4.9,
-      reviews: data.reviews || 0,
-      starting_price: data.starting_price,
-      short_description: data.short_description,
-      slug: data.slug,
-      location: data.location,
-      category_id: data.category_id,
-      seo_title: data.seo_title || '',
-      seo_description: data.seo_description || '',
-      status: data.status || 'active',
-      featured_reason: data.featured_reason,
-      activity_level: data.activity_level || 'moderate',
-      mood_tags: data.mood_tags || [],
-      max_group_size: data.max_group_size || 8,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      category: data.category,
-      images: []
-    };
+    return mapTour(data);
   } catch (error) {
     console.error('Error fetching tour by id:', error);
     return null;
   }
 };
+
+export const getTourBySlug = async (slug: string): Promise<Tour | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('tours')
+      .select(CATEGORY_SELECT)
+      .eq('slug', slug)
+      .eq('status', 'active')
+      .single();
+
+    if (error) throw error;
+    if (!data) return null;
+    return mapTour(data);
+  } catch (error) {
+    console.error('Error fetching tour by slug:', error);
+    return null;
+  }
+};
+
+export const getSignatureTours = async (limit: number = 4): Promise<Tour[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('tours')
+      .select(CATEGORY_SELECT)
+      .eq('status', 'active')
+      .eq('featured', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return (data || []).map(mapTour);
+  } catch (error) {
+    console.error('Error fetching signature tours:', error);
+    return [];
+  }
+};
+
+// Replaces getSignatureToursByCategory — no hardcoded IDs
+export const getFeaturedTourPerCategory = async (): Promise<Tour[]> => {
+  try {
+    const categories = await getCategories();
+    const results = await Promise.all(
+      categories.map(async (cat) => {
+        const { data } = await supabase
+          .from('tours')
+          .select(CATEGORY_SELECT)
+          .eq('status', 'active')
+          .eq('category_id', cat.id)
+          .order('featured', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return data ? mapTour(data) : null;
+      })
+    );
+    return results.filter(Boolean) as Tour[];
+  } catch (error) {
+    console.error('Error fetching featured tour per category:', error);
+    return [];
+  }
+};
+
+export const getPopularTours = async (limit: number = 3): Promise<Tour[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('tours')
+      .select(CATEGORY_SELECT)
+      .eq('status', 'active')
+      .eq('featured', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    if ((data || []).length >= limit) {
+      return (data || []).map(mapTour);
+    }
+
+    // Top up with non-featured if not enough featured
+    const remaining = limit - (data?.length || 0);
+    const { data: recentData, error: recentError } = await supabase
+      .from('tours')
+      .select(CATEGORY_SELECT)
+      .eq('status', 'active')
+      .eq('featured', false)
+      .order('created_at', { ascending: false })
+      .limit(remaining);
+
+    if (recentError) throw recentError;
+    return [...(data || []), ...(recentData || [])].map(mapTour);
+  } catch (error) {
+    console.error('Error fetching popular tours:', error);
+    return [];
+  }
+};
+
+export const getTopTourByCategory = async (categorySlug: string): Promise<Tour | null> => {
+  try {
+    const category = await getCategoryBySlug(categorySlug);
+    if (!category) return null;
+
+    const { data, error } = await supabase
+      .from('tours')
+      .select(CATEGORY_SELECT)
+      .eq('status', 'active')
+      .eq('category_id', category.id)
+      .order('featured', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data ? mapTour(data) : null;
+  } catch (error) {
+    console.error('Error fetching top tour by category:', error);
+    return null;
+  }
+};
+
+// ─── Adventures ────────────────────────────────────────────────────────────
+
+export const getAdventures = async (): Promise<Adventure[]> => {
+  try {
+    const category = await getCategoryBySlug('adventures');
+    if (!category) return [];
+
+    const { data, error } = await supabase
+      .from('tours')
+      .select(CATEGORY_SELECT)
+      .eq('status', 'active')
+      .eq('category_id', category.id)
+      .order('featured', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((item: any) => {
+      let activityLevel: 'Easy' | 'Moderate' | 'Hard' = 'Moderate';
+      const level = String(item.activity_level || '').toLowerCase();
+      if (level.includes('easy')) activityLevel = 'Easy';
+      else if (level.includes('hard') || level.includes('challenging')) activityLevel = 'Hard';
+
+      return {
+        id: String(item.id),
+        title: String(item.title || ''),
+        category: item.category?.name || 'Adventure',
+        icon: 'Zap',
+        image: getTourImageUrl(item.id, item.image_url),
+        activityLevel,
+        description: String(item.short_description || item.overview || ''),
+        price: `From $${item.starting_price || 0}`,
+        duration: String(item.duration || 'Full Day'),
+        highlights: Array.isArray(item.highlights) ? item.highlights : [],
+        itinerary: Array.isArray(item.itinerary) ? item.itinerary : [],
+        inclusions: Array.isArray(item.inclusions) ? item.inclusions : [],
+        exclusions: Array.isArray(item.exclusions) ? item.exclusions : [],
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching adventures:', error);
+    return [];
+  }
+};
+
+// ─── Packages ──────────────────────────────────────────────────────────────
 
 export const getPackages = async (): Promise<Package[]> => {
   try {
@@ -286,10 +396,10 @@ export const getPackages = async (): Promise<Package[]> => {
       .select('*')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
-    
-    const packages: Package[] = (data || []).map((item: any) => ({
+
+    return (data || []).map((item: any) => ({
       id: String(item.id),
       title: String(item.title || ''),
       slug: String(item.slug || ''),
@@ -302,180 +412,46 @@ export const getPackages = async (): Promise<Package[]> => {
       status: item.status || 'active',
       created_at: item.created_at,
       updated_at: item.updated_at,
-      image: item.image || `${BUCKET_URL}/packages/${item.id}.jpg`,
+      image: item.image_url || `${BUCKET_URL}/packages/${item.id}.jpg`,
       price: `$${item.price_estimate || 499}`,
       nights: item.duration_nights || 2,
       summary: Array.isArray(item.summary) ? item.summary : [],
       hotelCategory: item.hotel_category || 'Luxury',
-      tours: Array.isArray(item.tours) ? item.tours : []
+      tours: Array.isArray(item.tours) ? item.tours : [],
     }));
-    
-    return packages;
   } catch (error) {
     console.error('Error fetching packages:', error);
     return [];
   }
 };
 
+// ─── Gallery ───────────────────────────────────────────────────────────────
+
 export const getGalleryImages = async (): Promise<{ url: string; title: string }[]> => {
-  // Return bucket URLs for gallery images
-  return [
-    {
-      url: `${BUCKET_URL}/gallery/gallery-1.jpg`,
-      title: 'Ubud Rice Terraces'
-    },
-    {
-      url: `${BUCKET_URL}/gallery/gallery-2.jpg`,
-      title: 'Uluwatu Temple'
-    },
-    {
-      url: `${BUCKET_URL}/gallery/gallery-3.jpg`,
-      title: 'Mount Batur Sunrise'
-    },
-    {
-      url: `${BUCKET_URL}/gallery/gallery-4.jpg`,
-      title: 'Traditional Dance'
-    },
-    {
-      url: `${BUCKET_URL}/gallery/gallery-5.jpg`,
-      title: 'Hidden Waterfall'
-    },
-    {
-      url: `${BUCKET_URL}/gallery/gallery-6.jpg`,
-      title: 'Rice Terrace Swing'
-    }
-  ];
-};
-
-export const getSignatureTours = async (limit: number = 4): Promise<Tour[]> => {
   try {
     const { data, error } = await supabase
-      .from('tours')
-      .select(`
-        *,
-        category:tour_categories (name, slug, vibe)
-      `)
+      .from('gallery')
+      .select('image_url, title')
       .eq('status', 'active')
-      .eq('featured', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    
+      .order('created_at', { ascending: false });
+
     if (error) throw error;
-    
-    const tours: Tour[] = (data || []).map((item: any) => {
-      let categoryName = 'Tour';
-      if (item.category) {
-        if (typeof item.category === 'object') {
-          categoryName = item.category.name || 'Tour';
-        } else {
-          categoryName = String(item.category);
-        }
-      }
-      
-      return {
-        id: Number(item.id),
-        title: String(item.title || ''),
-        category: categoryName as any,
-        image: item.image_url || getTourImageUrl(item.id),
-        image_alt: item.image_alt || String(item.title || ''),
-        price: `From $${item.starting_price || 0}`,
-        duration: String(item.duration || 'Full Day'),
-        overview: String(item.short_description || item.overview || ''),
-        highlights: Array.isArray(item.highlights) ? item.highlights : [],
-        itinerary: Array.isArray(item.itinerary) ? item.itinerary : [],
-        inclusions: Array.isArray(item.inclusions) ? item.inclusions : [],
-        exclusions: Array.isArray(item.exclusions) ? item.exclusions : [],
-        featured: item.featured || false,
-        rating: item.rating || 4.9,
-        reviews: item.reviews || 0,
-        starting_price: item.starting_price,
-        short_description: item.short_description,
-        slug: item.slug,
-        location: item.location,
-        category_id: item.category_id,
-        seo_title: item.seo_title || '',
-        seo_description: item.seo_description || '',
-        status: item.status || 'active',
-        featured_reason: item.featured_reason,
-        activity_level: item.activity_level || 'moderate',
-        mood_tags: item.mood_tags || [],
-        max_group_size: item.max_group_size || 8,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        category: item.category,
-        images: []
-      };
-    });
-    
-    return tours;
-  } catch (error) {
-    console.error('Error fetching signature tours:', error);
-    return [];
+    if (data && data.length > 0) return data.map((item: any) => ({
+      url: item.image_url,
+      title: item.title || '',
+    }));
+  } catch {
+    // fall through to bucket fallback
   }
+
+  // Fallback: list from bucket if no gallery table
+  return Array.from({ length: 6 }, (_, i) => ({
+    url: `${BUCKET_URL}/gallery/gallery-${i + 1}.jpg`,
+    title: '',
+  }));
 };
 
-export const getTourBySlug = async (slug: string): Promise<Tour | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('tours')
-      .select(`
-        *,
-        category:tour_categories (name, slug, vibe)
-      `)
-      .eq('slug', slug)
-      .eq('status', 'active')
-      .single();
-    
-    if (error) throw error;
-    
-    if (!data) return null;
-    
-    let categoryName = 'Tour';
-    if (data.category) {
-      if (typeof data.category === 'object') {
-        categoryName = data.category.name || 'Tour';
-      } else {
-        categoryName = String(data.category);
-      }
-    }
-    
-    return {
-      id: Number(data.id),
-      title: String(data.title || ''),
-      category: categoryName as any,
-      image: getTourImageUrl(data.id),
-      price: `From $${data.starting_price || 0}`,
-      duration: String(data.duration || 'Full Day'),
-      overview: String(data.short_description || data.overview || ''),
-      highlights: Array.isArray(data.highlights) ? data.highlights : [],
-      itinerary: Array.isArray(data.itinerary) ? data.itinerary : [],
-      inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
-      exclusions: Array.isArray(data.exclusions) ? data.exclusions : [],
-      featured: data.featured || false,
-      rating: data.rating || 4.9,
-      reviews: data.reviews || 0,
-      starting_price: data.starting_price,
-      short_description: data.short_description,
-      slug: data.slug,
-      location: data.location,
-      category_id: data.category_id,
-      seo_title: data.seo_title || '',
-      seo_description: data.seo_description || '',
-      status: data.status || 'active',
-      featured_reason: data.featured_reason,
-      activity_level: data.activity_level || 'moderate',
-      mood_tags: data.mood_tags || [],
-      max_group_size: data.max_group_size || 8,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      category: data.category,
-      images: []
-    };
-  } catch (error) {
-    console.error('Error fetching tour by slug:', error);
-    return null;
-  }
-};
+// ─── Misc ──────────────────────────────────────────────────────────────────
 
 export const getCuratedTours = async (): Promise<any[]> => {
   try {
@@ -492,20 +468,12 @@ export const getTourByMood = async (mood: string): Promise<any> => {
   try {
     const { data, error } = await supabase
       .from('tours')
-      .select(`
-        id,
-        title,
-        slug,
-        short_description,
-        duration,
-        starting_price,
-        category:tour_categories (name)
-      `)
+      .select(`id, title, slug, short_description, duration, starting_price, category:tour_categories (name)`)
       .eq('status', 'active')
       .contains('mood_tags', [mood])
       .limit(1)
       .maybeSingle();
-    
+
     if (error) throw error;
     return data;
   } catch (error) {
@@ -514,287 +482,7 @@ export const getTourByMood = async (mood: string): Promise<any> => {
   }
 };
 
-// Get signature tours - one from each category (Combination, Adventure, Full Day, Half Day)
-export const getSignatureToursByCategory = async (): Promise<Tour[]> => {
-  try {
-    // Define the tours by their IDs as specified
-    const signatureTourIds = [6, 22, 15, 17]; // Cretya, Ubud Swing, Bedugul, Tanah Lot
-    
-    const { data, error } = await supabase
-      .from('tours')
-      .select(`
-        *,
-        category:tour_categories (name, slug, vibe)
-      `)
-      .eq('status', 'active')
-      .in('id', signatureTourIds)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    
-    // Transform data
-    const tours: Tour[] = (data || []).map((item: any) => {
-      let categoryName = 'Tour';
-      if (item.category) {
-        if (typeof item.category === 'object') {
-          categoryName = item.category.name || 'Tour';
-        } else {
-          categoryName = String(item.category);
-        }
-      }
-      
-      return {
-        id: Number(item.id),
-        title: String(item.title || ''),
-        category: categoryName as any,
-        image: getTourImageUrl(item.id),
-        price: `From $${item.starting_price || 0}`,
-        duration: String(item.duration || 'Full Day'),
-        overview: String(item.short_description || item.overview || ''),
-        highlights: Array.isArray(item.highlights) ? item.highlights : [],
-        itinerary: Array.isArray(item.itinerary) ? item.itinerary : [],
-        inclusions: Array.isArray(item.inclusions) ? item.inclusions : [],
-        exclusions: Array.isArray(item.exclusions) ? item.exclusions : [],
-        featured: item.featured || false,
-        rating: item.rating || 4.9,
-        reviews: item.reviews || 0,
-        starting_price: item.starting_price,
-        short_description: item.short_description,
-        slug: item.slug,
-        location: item.location,
-        category_id: item.category_id,
-        seo_title: item.seo_title || '',
-        seo_description: item.seo_description || '',
-        status: item.status || 'active',
-        featured_reason: item.featured_reason,
-        activity_level: item.activity_level || 'moderate',
-        mood_tags: item.mood_tags || [],
-        max_group_size: item.max_group_size || 8,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        category: item.category,
-        images: []
-      };
-    });
-    
-    return tours;
-  } catch (error) {
-    console.error('Error fetching signature tours by category:', error);
-    return [];
-  }
-};
-
-export const getTopAdventure = async (): Promise<Tour | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('tours')
-      .select(`
-        *,
-        category:tour_categories!inner (name, slug, vibe)
-      `)
-      .eq('status', 'active')
-      .eq('category.tour_categories.slug', 'adventures')
-      .order('featured', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching top adventure:', error);
-    return null;
-  }
-};
-
-export const getTopCulturalTour = async (): Promise<Tour | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('tours')
-      .select(`
-        *,
-        category:tour_categories!inner (name, slug, vibe)
-      `)
-      .eq('status', 'active')
-      .eq('category.tour_categories.vibe', 'cultural')
-      .order('featured', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching top cultural tour:', error);
-    return null;
-  }
-};
-
-export const getTopCombinationTour = async (): Promise<Tour | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('tours')
-      .select(`
-        *,
-        category:tour_categories (name, slug, vibe)
-      `)
-      .eq('status', 'active')
-      .ilike('title', '%combination%')
-      .order('featured', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    
-    if (error) throw error;
-    
-    if (!data) {
-      const { data: featuredData } = await supabase
-        .from('tours')
-        .select(`
-          *,
-          category:tour_categories (name, slug, vibe)
-        `)
-        .eq('status', 'active')
-        .eq('featured', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      return featuredData;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error fetching top combination tour:', error);
-    return null;
-  }
-};
-
-export const getPopularTours = async (limit: number = 3): Promise<Tour[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('tours')
-      .select(`
-        *,
-        category:tour_categories (name, slug, vibe)
-      `)
-      .eq('status', 'active')
-      .eq('featured', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    
-    if (error) throw error;
-    
-    if (data && data.length >= limit) {
-      const tours: Tour[] = (data || []).map((item: any) => {
-        let categoryName = 'Tour';
-        if (item.category) {
-          if (typeof item.category === 'object') {
-            categoryName = item.category.name || 'Tour';
-          } else {
-            categoryName = String(item.category);
-          }
-        }
-        
-        return {
-          id: Number(item.id),
-          title: String(item.title || ''),
-          category: categoryName as any,
-          image: getTourImageUrl(item.id),
-          price: `From $${item.starting_price || 0}`,
-          duration: String(item.duration || 'Full Day'),
-          overview: String(item.short_description || item.overview || ''),
-          highlights: Array.isArray(item.highlights) ? item.highlights : [],
-          itinerary: Array.isArray(item.itinerary) ? item.itinerary : [],
-          inclusions: Array.isArray(item.inclusions) ? item.inclusions : [],
-          exclusions: Array.isArray(item.exclusions) ? item.exclusions : [],
-          featured: item.featured || false,
-          rating: item.rating || 4.9,
-          reviews: item.reviews || 0,
-          starting_price: item.starting_price,
-          short_description: item.short_description,
-          slug: item.slug,
-          location: item.location,
-          category_id: item.category_id,
-          seo_title: item.seo_title || '',
-          seo_description: item.seo_description || '',
-          status: item.status || 'active',
-          featured_reason: item.featured_reason,
-          activity_level: item.activity_level || 'moderate',
-          mood_tags: item.mood_tags || [],
-          max_group_size: item.max_group_size || 8,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          category: item.category,
-          images: []
-        };
-      });
-      return tours;
-    }
-    
-    const remaining = limit - (data?.length || 0);
-    const { data: recentData, error: recentError } = await supabase
-      .from('tours')
-      .select(`
-        *,
-        category:tour_categories (name, slug, vibe)
-      `)
-      .eq('status', 'active')
-      .eq('featured', false)
-      .order('created_at', { ascending: false })
-      .limit(remaining);
-    
-    if (recentError) throw recentError;
-    
-    const allData = [...(data || []), ...(recentData || [])];
-    
-    const tours: Tour[] = allData.map((item: any) => {
-      let categoryName = 'Tour';
-      if (item.category) {
-        if (typeof item.category === 'object') {
-          categoryName = item.category.name || 'Tour';
-        } else {
-          categoryName = String(item.category);
-        }
-      }
-      
-      return {
-        id: Number(item.id),
-        title: String(item.title || ''),
-        category: categoryName as any,
-        image: getTourImageUrl(item.id),
-        price: `From $${item.starting_price || 0}`,
-        duration: String(item.duration || 'Full Day'),
-        overview: String(item.short_description || item.overview || ''),
-        highlights: Array.isArray(item.highlights) ? item.highlights : [],
-        itinerary: Array.isArray(item.itinerary) ? item.itinerary : [],
-        inclusions: Array.isArray(item.inclusions) ? item.inclusions : [],
-        exclusions: Array.isArray(item.exclusions) ? item.exclusions : [],
-        featured: item.featured || false,
-        rating: item.rating || 4.9,
-        reviews: item.reviews || 0,
-        starting_price: item.starting_price,
-        short_description: item.short_description,
-        slug: item.slug,
-        location: item.location,
-        category_id: item.category_id,
-        seo_title: item.seo_title || '',
-        seo_description: item.seo_description || '',
-        status: item.status || 'active',
-        featured_reason: item.featured_reason,
-        activity_level: item.activity_level || 'moderate',
-        mood_tags: item.mood_tags || [],
-        max_group_size: item.max_group_size || 8,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        category: item.category,
-        images: []
-      };
-    });
-    
-    return tours;
-  } catch (error) {
-    console.error('Error fetching popular tours:', error);
-    return [];
-  }
-};
+// Kept for backwards compatibility — wraps getTopTourByCategory
+export const getTopAdventure = () => getTopTourByCategory('adventures');
+export const getTopCulturalTour = () => getTopTourByCategory('full-day');
+export const getTopCombinationTour = () => getTopTourByCategory('combination');

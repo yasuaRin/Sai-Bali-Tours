@@ -8,6 +8,37 @@ import type { Tour } from '../services/tourService';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'duration-asc' | 'duration-desc';
 
+// Helper function to safely get category slug from tour object - FULLY DYNAMIC
+const getCategorySlug = (tour: Tour): string => {
+  // If category is a string (fallback)
+  if (typeof tour.category === 'string') {
+    return tour.category.toLowerCase().replace(/\s+/g, '-');
+  }
+  // If category is an object with slug (from Supabase join)
+  if (tour.category && typeof tour.category === 'object') {
+    // Priority 1: Use the slug if it exists
+    if ('slug' in tour.category && (tour.category as any).slug) {
+      return (tour.category as any).slug;
+    }
+    // Priority 2: Use name if no slug
+    if ('name' in tour.category && (tour.category as any).name) {
+      return (tour.category as any).name.toLowerCase().replace(/\s+/g, '-');
+    }
+  }
+  // Fallback - use category_id to create a slug
+  return `category-${tour.category_id}`;
+};
+
+// Get display name from category object - FULLY DYNAMIC
+const getCategoryDisplayName = (category: any): string => {
+  if (!category) return 'Tour';
+  if (typeof category === 'string') return category;
+  if (typeof category === 'object') {
+    return category.name || category.slug || 'Tour';
+  }
+  return 'Tour';
+};
+
 const ToursByCategory: React.FC = () => {
   const { category } = useParams<{ category: string }>();
   const [tours, setTours] = useState<Tour[]>([]);
@@ -15,6 +46,7 @@ const ToursByCategory: React.FC = () => {
   const [visibleCount, setVisibleCount] = useState(5);
   const [sortBy, setSortBy] = useState<SortOption>('default');
   
+  // Dynamic display category - converts slug to readable name
   const displayCategory = category?.split('-').map(word => 
     word.charAt(0).toUpperCase() + word.slice(1)
   ).join(' ') || 'All';
@@ -23,6 +55,7 @@ const ToursByCategory: React.FC = () => {
     const fetchTours = async () => {
       try {
         const data = await getTours();
+        console.log('Fetched tours:', data);
         setTours(data);
       } catch (error) {
         console.error('Error fetching tours:', error);
@@ -33,12 +66,16 @@ const ToursByCategory: React.FC = () => {
     fetchTours();
   }, []);
 
-  // Filter tours by category
+  // Filter tours by category - USING ACTUAL DATABASE CATEGORY SLUGS
   const filteredTours = useMemo(() => {
-    if (!category || category === 'all') return tours;
-    return tours.filter(tour => 
-      tour.category.toLowerCase().replace(/\s+/g, '-') === category.toLowerCase()
-    );
+    if (!category || category === 'all') {
+      return tours;
+    }
+    
+    return tours.filter(tour => {
+      const tourSlug = getCategorySlug(tour);
+      return tourSlug === category;
+    });
   }, [tours, category]);
 
   // Sort tours

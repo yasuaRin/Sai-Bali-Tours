@@ -5,11 +5,11 @@ export default {
     extend: {
       colors: {
         brand: {
-          orange: '#F28C33',
-          text: '#1A2026',
+          'brand-orange': '#FF6B35',
+           'brand-text': '#2D2D2D',
           accent: '#FFC857',
           secondary: '#2B5869',
-          anchor: '#143D4D',
+           'brand-anchor': '#1A1A1A',
         }
       },
       fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },

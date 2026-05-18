@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { Clock, Star, ChevronDown, ChevronUp, Check, ArrowUpRight } from 'lucide-react';
 import type { Tour } from '../types';
 
+// 1️⃣ IMPORT THE IMAGE OPTIMIZER
+import { getTourCardImage } from '../utils/imageOptimizer';
+
 interface TourCardProps {
   tour: Tour;
 }
@@ -10,8 +13,13 @@ interface TourCardProps {
 const TourCard: React.FC<TourCardProps> = ({ tour }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false); // 2️⃣ TRACK WHEN IMAGE LOADS
 
-  const fallbackImage = 'https://hocwvwfsvgycpjlwgiby.supabase.co/storage/v1/object/public/website-assets/fallback.jpg';
+  // 3️⃣ FALLBACK IMAGE (should be a complete URL)
+  const fallbackImage = 'https://gmcyxgjmlrytrwqgrona.supabase.co/storage/v1/object/public/website-assets/fallback.jpg';
+
+  // 4️⃣ OPTIMIZE THE IMAGE URL
+  const optimizedImage = getTourCardImage(tour.image);
 
   return (
     <div 
@@ -20,31 +28,42 @@ const TourCard: React.FC<TourCardProps> = ({ tour }) => {
       }`}
     >
       {/* Visual Area */}
-      <div className="relative aspect-[4/3] overflow-hidden shrink-0">
+      <div className="relative aspect-[4/3] overflow-hidden shrink-0 bg-gray-100">
+        {/* 5️⃣ LOADING SKELETON - Shows gray pulsing box while image loads */}
+        {!imageLoaded && (
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100" />
+        )}
+        
         <img 
-          src={imageError ? fallbackImage : tour.image} 
-          alt={tour.image_alt || tour.title} 
-          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-          onError={() => setImageError(true)}
-          loading="lazy"
+          src={imageError ? fallbackImage : optimizedImage}  // 6️⃣ USE OPTIMIZED IMAGE
+          alt={tour.image_alt || tour.title}
+          className={`w-full h-full object-cover transition-all duration-1000 ${
+            // 7️⃣ FADE IN WHEN LOADED
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          } group-hover:scale-110`}
+          onError={() => setImageError(true)}  // 8️⃣ HANDLE ERROR
+          onLoad={() => setImageLoaded(true)}   // 9️⃣ MARK AS LOADED
+          loading="lazy"                        // 🔟 LAZY LOAD
+          width="400"                           // 1️⃣1️⃣ HELPS BROWSER RESERVE SPACE
+          height="300"
         />
+        
         {/* Category Badge - Top Left */}
         <div className="absolute top-3 sm:top-4 left-3 sm:left-4 z-10">
           <div className="bg-white/95 backdrop-blur-md text-brand-text px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-widest shadow-sm">
-            {tour.category}
+            {typeof tour.category === 'object' ? tour.category.name : tour.category}
           </div>
         </div>
         
-        {/* Price Badge - Top Right (moved to separate div to avoid overlap) */}
         {/* Price Badge - Bottom Left */}
-          <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-10">
+        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-10">
           <div className="bg-brand-orange text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-widest shadow-sm">
             {tour.price}
           </div>
         </div>
       </div>
       
-      {/* Content Area */}
+      {/* Content Area - REST OF YOUR COMPONENT STAYS THE SAME */}
       <div className="flex-1 p-4 sm:p-5 md:p-6 flex flex-col">
         <div className="flex items-center justify-between mb-2 sm:mb-3">
           <div className="flex items-center space-x-0.5 sm:space-x-1 text-brand-orange">
@@ -75,7 +94,7 @@ const TourCard: React.FC<TourCardProps> = ({ tour }) => {
             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
           <Link 
-            to={`/tour/${tour.id}`}
+            to={`/tour/${tour.slug}`}
             className="flex-1 flex items-center justify-center space-x-1 sm:space-x-2 bg-brand-anchor text-white py-2 sm:py-2.5 md:py-3 rounded-lg sm:rounded-xl font-black text-[8px] sm:text-[9px] md:text-[10px] uppercase hover:bg-brand-orange transition-all"
           >
             <span>Full Details</span>

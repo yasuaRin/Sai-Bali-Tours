@@ -1,6 +1,7 @@
 // src/components/HeroCarousel.tsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { getHeroImage } from '../utils/imageOptimizer';
 import { ArrowRight } from 'lucide-react';
 
 const slides = [
@@ -72,7 +73,7 @@ const HeroCarousel: React.FC = () => {
         >
           {/* Image with responsive opacity */}
           <img 
-            src={slide.image} 
+            src={getHeroImage(slide.image)}
             className="w-full h-full object-cover opacity-60 xs:opacity-65 sm:opacity-70 md:opacity-75" 
             alt={slide.alt} 
             loading={idx === 0 ? "eager" : "lazy"}

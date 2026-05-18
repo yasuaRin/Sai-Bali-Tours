@@ -40,7 +40,7 @@ const CategoryShowcase: React.FC<ShowcaseProps> = ({ title, category, descriptio
             {/* The #1 Pick Card */}
             {featured && (
               <Link 
-                to={category === 'Adventure' ? '/adventures' : `/tour/${featured.id}`}
+                to={category === 'Adventure' ? '/adventures' : `/tour/${featured.slug}`}
                 className="group relative block p-8 bg-gray-50 rounded-[2.5rem] border-2 border-transparent hover:border-brand-orange/30 hover:bg-white hover:shadow-2xl transition-all"
               >
                 <div className="flex items-center justify-between mb-6">

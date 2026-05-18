@@ -90,7 +90,7 @@ const Gallery: React.FC = () => {
         {filteredTours.map((tour, index) => (
           <Link 
             key={tour.id} 
-            to={`/tour/${tour.id}`}
+            to={`/tour/${tour.slug}`}
             className="group relative aspect-[4/5] overflow-hidden rounded-[3rem] bg-gray-200 shadow-xl transition-all duration-500 hover:-translate-y-2"
             style={{ animationDelay: `${index * 50}ms` }}
           >

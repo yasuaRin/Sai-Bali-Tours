@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, ArrowRight } from 'lucide-react';
 import type { BlogPost } from '../types';
+import { getThumbnailImage } from '../utils/imageOptimizer';
 
 interface BlogCardProps {
   post: BlogPost;
 }
 
 const BlogCard: React.FC<BlogCardProps> = ({ post }) => {
-  // Format date
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -18,17 +21,15 @@ const BlogCard: React.FC<BlogCardProps> = ({ post }) => {
     });
   };
 
-  // Get primary image or first image
   const getPrimaryImage = () => {
     if (post.images && post.images.length > 0) {
       const primary = post.images.find(img => img.is_primary);
       return primary?.image_url || post.images[0].image_url;
     }
-    // Fallback if no images
+    if (post.image) return post.image;
     return 'https://gmcyxgjmlrytrwqgrona.supabase.co/storage/v1/object/public/website-assets/fallback.jpg';
   };
 
-  // Get category from title
   const getCategory = () => {
     if (post.title.toLowerCase().includes('guide')) return 'Guides';
     if (post.title.toLowerCase().includes('waterfall')) return 'Adventure';
@@ -37,6 +38,10 @@ const BlogCard: React.FC<BlogCardProps> = ({ post }) => {
     return 'Travel Tips';
   };
 
+  const originalImage = getPrimaryImage();
+  const optimizedImage = getThumbnailImage(originalImage);
+  const fallbackImage = 'https://gmcyxgjmlrytrwqgrona.supabase.co/storage/v1/object/public/website-assets/fallback.jpg';
+
   return (
     <Link
       to={`/blog/${post.slug}`}
@@ -44,13 +49,22 @@ const BlogCard: React.FC<BlogCardProps> = ({ post }) => {
     >
       {/* Image Panel */}
       <div className="relative aspect-[3/2] overflow-hidden bg-[#1a1a1a]">
-        <img
-          src={getPrimaryImage()}
-          alt={post.images?.find(img => img.is_primary)?.alt_text || post.title}
-          className="w-full h-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-110 opacity-80 group-hover:opacity-100"
-          onError={(e) => {
-            e.currentTarget.src = 'https://gmcyxgjmlrytrwqgrona.supabase.co/storage/v1/object/public/website-assets/fallback.jpg';
-          }}
+        {/* Loading Skeleton */}
+        {!imageLoaded && !imageError && (
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a]" />
+        )}
+        
+        <img 
+          src={imageError ? fallbackImage : optimizedImage}
+          alt={post.title} 
+          className={`w-full h-full object-cover transition-all duration-[1.2s] ease-out group-hover:scale-110 ${
+            imageLoaded ? 'opacity-80 group-hover:opacity-100' : 'opacity-0'
+          }`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageError(true)}
+          loading="lazy"
+          width="150"
+          height="100"
         />
 
         {/* Cinematic gradient overlay */}
@@ -101,7 +115,6 @@ const BlogCard: React.FC<BlogCardProps> = ({ post }) => {
 
           {/* Animated arrow pill */}
           <div className="flex items-center gap-1.5 overflow-hidden">
-            {/* Sliding underline track */}
             <span className="h-px bg-brand-orange/20 group-hover:bg-brand-orange/60 transition-all duration-500 w-0 group-hover:w-8" />
             <div className="w-7 h-7 rounded-full border border-white/10 bg-white/[0.04] group-hover:bg-brand-orange group-hover:border-brand-orange flex items-center justify-center transition-all duration-500 shadow-sm group-hover:shadow-[0_0_16px_rgba(242,140,51,0.4)]">
               <ArrowRight

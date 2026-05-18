@@ -5,6 +5,7 @@ import { Loader2, Calendar, ArrowLeft, Share2, User, Clock, MessageCircle, Maxim
 import { blogService } from '../services/blogService';
 import type { BlogPost, BlogImage } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getHeroImage, getThumbnailImage } from '../utils/imageOptimizer';
 
 const BUCKET_URL = 'https://gmcyxgjmlrytrwqgrona.supabase.co/storage/v1/object/public/website-assets/blog';
 
@@ -28,6 +29,7 @@ const BlogDetail: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [completedPoints, setCompletedPoints] = useState<Set<number>>(new Set());
   const [interactivePoints, setInteractivePoints] = useState<InteractivePoint[]>([]);
+  const [heroImageLoaded, setHeroImageLoaded] = useState(false);
 
   // Check if this is the Nyepi blog (id: 2)
   const isNyepiBlog = post?.id === 2;
@@ -155,65 +157,142 @@ const BlogDetail: React.FC = () => {
     return `${BUCKET_URL}/fallback.jpg`;
   };
 
+  const getOptimizedHeroImage = (post: BlogPost): string => {
+    const imageUrl = getPrimaryImage(post);
+    return getHeroImage(imageUrl);
+  };
+
+  const getOptimizedThumbnail = (imageUrl: string): string => {
+    return getThumbnailImage(imageUrl);
+  };
+
   const formatContent = (content: string) => {
     if (!content) return null;
-    
-    const sections = content.split(/(?=\d+\.\s+)/g);
+
+    const cleanContent = content
+      .replace(/\\n/g, '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n');
+
     const sectionImages = getSectionImages();
     let imageIndex = 0;
+
+    type Block =
+      | { type: 'h2'; text: string }
+      | { type: 'numbered'; number: number; title: string; content: string[] }
+      | { type: 'bullet'; text: string }
+      | { type: 'paragraph'; text: string };
+
+    const blocks: Block[] = [];
+
+    // First pass: group lines into blocks
+    for (const line of cleanContent.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      if (trimmed.startsWith('##')) {
+        blocks.push({ type: 'h2', text: trimmed.replace(/^##\s*/, '') });
+        continue;
+      }
+
+      const numMatch = trimmed.match(/^\**?(\d+)\.\s+(.+)/);
+      if (numMatch) {
+        blocks.push({ 
+          type: 'numbered', 
+          number: parseInt(numMatch[1]), 
+          title: numMatch[2].replace(/\*+$/, '').trim(),
+          content: []
+        });
+        continue;
+      }
+
+      if (trimmed.startsWith('-')) {
+        blocks.push({ type: 'bullet', text: trimmed.substring(1).trim() });
+        continue;
+      }
+
+      blocks.push({ type: 'paragraph', text: trimmed });
+    }
+
+    // Second pass: combine related paragraphs into numbered block content
+    const finalBlocks: Block[] = [];
     
-    return sections.map((section, index) => {
-      const numberMatch = section.match(/^(\d+)\.\s+(.*?)(?=\n|$)/s);
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
       
-      if (numberMatch) {
-        const sectionNumber = parseInt(numberMatch[1]);
-        const sectionImage = sectionImages[imageIndex];
+      if (block.type === 'numbered') {
+        // Collect all following paragraphs until next numbered block or h2
+        const contentLines: string[] = [];
+        let j = i + 1;
         
-        if (sectionImages.length > imageIndex) {
-          imageIndex++;
+        while (j < blocks.length && 
+               blocks[j].type !== 'numbered' && 
+               blocks[j].type !== 'h2') {
+          if (blocks[j].type === 'paragraph') {
+            contentLines.push(blocks[j].text);
+          } else if (blocks[j].type === 'bullet') {
+            contentLines.push(`• ${blocks[j].text}`);
+          }
+          j++;
         }
         
-        const title = numberMatch[2].split('\n')[0];
-        const restContent = section.substring(numberMatch[0].length);
+        // Combine content lines into a single block
+        finalBlocks.push({
+          ...block,
+          content: contentLines
+        });
         
+        i = j - 1; // Skip processed blocks
+      } else {
+        finalBlocks.push(block);
+      }
+    }
+
+    return finalBlocks.map((block, idx) => {
+      if (block.type === 'h2') {
         return (
-          <div key={index} className="mb-10 sm:mb-12 md:mb-16 last:mb-0">
-            {/* Section Title with Number */}
+          <h2 key={idx} className="text-xl sm:text-2xl md:text-3xl font-black text-brand-text leading-tight mt-10 mb-4">
+            {formatBoldText(block.text)}
+          </h2>
+        );
+      }
+
+      if (block.type === 'numbered') {
+        const sectionImage = sectionImages[imageIndex];
+        if (sectionImages.length > imageIndex) imageIndex++;
+
+        return (
+          <div key={idx} className="mb-8 sm:mb-10 last:mb-0">
             <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
               <span className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-brand-orange text-white font-black text-base sm:text-lg md:text-xl shrink-0">
-                {sectionNumber}
+                {block.number}
               </span>
               <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-brand-text flex-1 leading-tight">
-                {formatBoldText(title)}
+                {formatBoldText(block.title)}
               </h2>
             </div>
             
-            {/* Section Image */}
             {sectionImage && (
               <div className="flex justify-center my-8">
                 <div className="relative group cursor-pointer w-full max-w-[400px]" onClick={() => setSelectedImage(sectionImage.image_url)}>
                   <div className="relative bg-white p-3 pb-6 rounded-2xl shadow-lg border border-gray-100 w-full">
                     <div className="relative w-full aspect-[4/3] overflow-hidden rounded-lg bg-gray-50">
-                      <img 
-                        src={sectionImage.image_url}
-                        alt={sectionImage.alt_text || `Section ${sectionNumber}`}
+                      <img
+                        src={getOptimizedThumbnail(sectionImage.image_url)}
+                        alt={sectionImage.alt_text || `Section ${block.number}`}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        onError={(e) => {
-                          e.currentTarget.src = `${BUCKET_URL}/fallback.jpg`;
-                        }}
+                        onError={(e) => { e.currentTarget.src = `${BUCKET_URL}/fallback.jpg`; }}
+                        loading="lazy"
+                        width="400"
+                        height="300"
                       />
                     </div>
-                    
-                    <button 
+                    <button
                       className="absolute bottom-10 right-5 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:scale-110 hover:bg-brand-orange hover:text-white"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedImage(sectionImage.image_url);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); setSelectedImage(sectionImage.image_url); }}
                     >
                       <Maximize2 size={14} />
                     </button>
-                    
                     {sectionImage.caption && (
                       <p className="text-[10px] sm:text-xs text-gray-600 mt-3 italic text-center px-2 font-medium line-clamp-2">
                         {sectionImage.caption}
@@ -224,35 +303,40 @@ const BlogDetail: React.FC = () => {
               </div>
             )}
             
-            {/* Section Content */}
-            <div className="pl-10 sm:pl-11 md:pl-14">
-              {restContent.split('\n').map((line, lineIdx) => {
-                if (!line.trim()) return null;
+            <div className="pl-10 sm:pl-11 md:pl-14 space-y-0">
+              {block.content.map((line, lineIdx) => {
+                // Check for colon-based labels (Ideal for:, Pro tip:, etc.)
+                const colonIndex = line.indexOf(':');
+                const hasColonLabel = colonIndex > 0 && colonIndex < 30;
                 
-                if (line.trim().startsWith('-')) {
-                  const bulletContent = line.trim().substring(1).trim();
+                if (hasColonLabel && (line.toLowerCase().includes('ideal') || 
+                    line.toLowerCase().includes('pro tip') || 
+                    line.toLowerCase().includes('tip') ||
+                    line.toLowerCase().includes('best for'))) {
+                  const label = line.substring(0, colonIndex + 1);
+                  const contentText = line.substring(colonIndex + 1).trim();
+                  
                   return (
-                    <div key={lineIdx} className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
-                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-brand-orange mt-2 sm:mt-2.5 shrink-0" />
-                      <h3 className="text-sm sm:text-base text-gray-500 leading-relaxed flex-1">
-                        {formatBoldText(bulletContent)}
-                      </h3>
-                    </div>
-                  );
-                }
-                
-                if (line.includes(':')) {
-                  const parts = line.split(':');
-                  return (
-                    <p key={lineIdx} className="text-sm sm:text-base text-gray-500 leading-relaxed mb-2 sm:mb-3">
-                      <span className="font-black text-brand-text">{parts[0]}:</span>
-                      {formatBoldText(parts.slice(1).join(':'))}
+                    <p key={lineIdx} className="text-sm sm:text-base text-gray-500 leading-relaxed !mt-0">
+                      <span className="font-black text-brand-text">{label}</span> {formatBoldText(contentText)}
                     </p>
                   );
                 }
                 
+                // Handle bullet points with •
+                if (line.startsWith('•')) {
+                  return (
+                    <div key={lineIdx} className="flex items-start gap-2 mb-1">
+                      <span className="text-brand-orange mt-1">•</span>
+                      <p className="text-sm sm:text-base text-gray-500 leading-relaxed flex-1">
+                        {formatBoldText(line.substring(1).trim())}
+                      </p>
+                    </div>
+                  );
+                }
+                
                 return (
-                  <p key={lineIdx} className="text-sm sm:text-base text-gray-500 leading-relaxed mb-2 sm:mb-3">
+                  <p key={lineIdx} className="text-sm sm:text-base text-gray-500 leading-relaxed mb-1">
                     {formatBoldText(line)}
                   </p>
                 );
@@ -261,19 +345,22 @@ const BlogDetail: React.FC = () => {
           </div>
         );
       }
-      
-      // Introduction text
+
+      if (block.type === 'bullet') {
+        return (
+          <div key={idx} className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
+            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-brand-orange mt-2 sm:mt-2.5 shrink-0" />
+            <p className="text-sm sm:text-base text-gray-500 leading-relaxed flex-1">
+              {formatBoldText(block.text)}
+            </p>
+          </div>
+        );
+      }
+
       return (
-        <div key={index} className="mb-6 sm:mb-8 text-sm sm:text-base text-gray-500 font-bold leading-relaxed">
-          {section.split('\n').map((line, lineIdx) => {
-            if (!line.trim()) return null;
-            return (
-              <p key={lineIdx} className="mb-3 sm:mb-4">
-                {formatBoldText(line)}
-              </p>
-            );
-          })}
-        </div>
+        <p key={idx} className="text-sm sm:text-base text-gray-500 leading-relaxed mb-2 sm:mb-3">
+          {formatBoldText(block.text)}
+        </p>
       );
     });
   };
@@ -326,9 +413,14 @@ const BlogDetail: React.FC = () => {
         <section className="relative h-[60vh] sm:h-[65vh] md:h-[70vh] flex items-end overflow-hidden bg-brand-anchor">
           <div className="absolute inset-0 z-0">
             <img 
-              src={coverImage?.image_url || getPrimaryImage(post)} 
+              src={getOptimizedHeroImage(post)} 
               alt={post.title} 
-              className="w-full h-full object-cover opacity-60" 
+              className="w-full h-full object-cover opacity-60 transition-opacity duration-500"
+              onError={(e) => {
+                e.currentTarget.src = `${BUCKET_URL}/fallback.jpg`;
+              }}
+              loading="eager"
+              fetchpriority="high"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-brand-anchor via-brand-anchor/40 to-transparent"></div>
           </div>
@@ -402,14 +494,17 @@ const BlogDetail: React.FC = () => {
                     to={`/blog/${related.slug}`} 
                     className="group block transform transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-gray-100"
                   >
-                    <div className="relative aspect-[4/3] overflow-hidden">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
                       <img 
-                        src={getPrimaryImage(related)} 
+                        src={getOptimizedThumbnail(getPrimaryImage(related))} 
                         alt={related.title} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         onError={(e) => {
                           e.currentTarget.src = `${BUCKET_URL}/fallback.jpg`;
                         }}
+                        loading="lazy"
+                        width="400"
+                        height="300"
                       />
                       <div className="absolute top-4 left-4">
                         <span className="px-3 py-1.5 bg-white/90 backdrop-blur-md text-brand-text rounded-full text-[7px] sm:text-[8px] font-black uppercase tracking-widest border border-gray-100 shadow-sm">
@@ -468,29 +563,6 @@ const BlogDetail: React.FC = () => {
           </section>
         )}
 
-        {/* Mobile Share Bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-3 px-4 flex justify-center space-x-4 lg:hidden z-50">
-          <button 
-            onClick={() => {
-              if (navigator.share) {
-                navigator.share({
-                  title: post.title,
-                  text: post.excerpt || 'Check out this article',
-                  url: window.location.href,
-                });
-              }
-            }}
-            className="flex-1 max-w-[200px] flex items-center justify-center space-x-2 bg-brand-orange text-white py-3 rounded-full text-[8px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-105 hover:bg-brand-orange/90"
-          >
-            <Share2 size={14} />
-            <span>Share</span>
-          </button>
-          <button className="flex-1 max-w-[200px] flex items-center justify-center space-x-2 bg-brand-anchor text-white py-3 rounded-full text-[8px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-105 hover:bg-brand-anchor/90">
-            <MessageCircle size={14} />
-            <span>Comment</span>
-          </button>
-        </div>
-
         {/* Image Lightbox Modal */}
         {selectedImage && (
           <div 
@@ -530,14 +602,22 @@ const BlogDetail: React.FC = () => {
 
       {/* Hero Section */}
       <section className="relative h-[40vh] sm:h-[45vh] md:h-[50vh] lg:h-[60vh] flex items-end overflow-hidden">
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 bg-gray-800">
+          {/* Loading skeleton */}
+          {!heroImageLoaded && (
+            <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-700 via-gray-600 to-gray-700" />
+          )}
           <img 
-            src={coverImage?.image_url || getPrimaryImage(post)}
+            src={getOptimizedHeroImage(post)}
             alt={post.title}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover transition-opacity duration-500 ${heroImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setHeroImageLoaded(true)}
             onError={(e) => {
               e.currentTarget.src = `${BUCKET_URL}/fallback.jpg`;
+              setHeroImageLoaded(true);
             }}
+            loading="eager"
+            fetchpriority="high"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-brand-anchor via-brand-anchor/40 to-transparent"></div>
         </div>
@@ -611,9 +691,9 @@ const BlogDetail: React.FC = () => {
                       : 'bg-white border-gray-100 hover:border-brand-orange/30 hover:shadow-xl'
                   }`}
                 >
-                  <div className="w-full md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
+                  <div className="w-full md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden shadow-lg bg-gray-100">
                     <img 
-                      src={point.image} 
+                      src={getOptimizedThumbnail(point.image)} 
                       alt={point.title} 
                       className={`w-full h-full object-cover transition-transform duration-700 ${
                         isCompleted ? 'scale-110 opacity-40 grayscale' : 'group-hover:scale-110'
@@ -621,6 +701,9 @@ const BlogDetail: React.FC = () => {
                       onError={(e) => {
                         e.currentTarget.src = `${BUCKET_URL}/fallback.jpg`;
                       }}
+                      loading="lazy"
+                      width="400"
+                      height="300"
                     />
                   </div>
                   
@@ -687,14 +770,17 @@ const BlogDetail: React.FC = () => {
                   to={`/blog/${related.slug}`} 
                   className="group block transform transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-gray-100"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
                     <img 
-                      src={getPrimaryImage(related)} 
+                      src={getOptimizedThumbnail(getPrimaryImage(related))} 
                       alt={related.title} 
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       onError={(e) => {
                         e.currentTarget.src = `${BUCKET_URL}/fallback.jpg`;
                       }}
+                      loading="lazy"
+                      width="400"
+                      height="300"
                     />
                     <div className="absolute top-4 left-4">
                       <span className="px-3 py-1.5 bg-white/90 backdrop-blur-md text-brand-text rounded-full text-[7px] sm:text-[8px] font-black uppercase tracking-widest border border-gray-100 shadow-sm">
@@ -752,29 +838,6 @@ const BlogDetail: React.FC = () => {
           </div>
         </section>
       )}
-
-      {/* Mobile Share Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-3 px-4 flex justify-center space-x-4 lg:hidden z-50">
-        <button 
-          onClick={() => {
-            if (navigator.share) {
-              navigator.share({
-                title: post.title,
-                text: post.excerpt || 'Check out this article',
-                url: window.location.href,
-              });
-            }
-          }}
-          className="flex-1 max-w-[200px] flex items-center justify-center space-x-2 bg-brand-orange text-white py-3 rounded-full text-[8px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-105 hover:bg-brand-orange/90"
-        >
-          <Share2 size={14} />
-          <span>Share</span>
-        </button>
-        <button className="flex-1 max-w-[200px] flex items-center justify-center space-x-2 bg-brand-anchor text-white py-3 rounded-full text-[8px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-105 hover:bg-brand-anchor/90">
-          <MessageCircle size={14} />
-          <span>Comment</span>
-        </button>
-      </div>
 
       {/* Image Lightbox Modal */}
       {selectedImage && (

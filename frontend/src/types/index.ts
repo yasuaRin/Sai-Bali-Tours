@@ -35,7 +35,7 @@ export interface Tour {
   slug: string;
   short_description: string | null;
   overview?: string;
-  itinerary: string;
+  itinerary: { time: string; activity: string }[];
   inclusions: string[];
   exclusions: string[];
   duration: string;
@@ -54,11 +54,13 @@ export interface Tour {
   max_group_size: number;
   created_at: string;
   updated_at: string;
-  category?: any;
-  images?: any[];
+  category?: TourCategory;
+  images?: TourImage[];
   rating?: number;
   reviews?: number;
   highlights?: string[];
+  hotel_options?: { hotel: string; cost:string } [];
+  notes?: string;
 }
 
 export interface Package {
@@ -92,7 +94,7 @@ export interface Adventure {
   category?: string;
 }
 
-export type TourCategoryType = 'Combination' | 'Adventure' | 'Full Day' | 'Half Day';
+export type TourCategoryType = 'Combination' | 'Adventure' | 'Full Day' | 'Half Day' | 'Stay + Tour';
 // Add this to your types file
 export interface BlogImage {
   id: number;
