@@ -4,13 +4,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          'brand-orange': '#FF6B35',
-           'brand-text': '#2D2D2D',
-          accent: '#FFC857',
-          secondary: '#2B5869',
-           'brand-anchor': '#1A1A1A',
-        }
+        'brand-orange': '#F28C33',
+        'brand-text': '#1A2026',
+        'brand-accent': '#FFC857',
+        'brand-secondary': '#2B5869',
+        'brand-anchor': '#143D4D',
       },
       fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
       keyframes: {

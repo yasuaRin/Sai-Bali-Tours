@@ -11,10 +11,12 @@ const getTourImageUrl = (tourId: number, imageUrl?: string | null): string => {
 const mapTour = (item: any): Tour => ({
   id: Number(item.id),
   title: String(item.title || ''),
+  slug: String(item.slug || ''),
   category: item.category ?? null,
   image: getTourImageUrl(item.id, item.image_url),
   image_alt: item.image_alt || String(item.title || ''),
   price: `From $${item.starting_price || 0}`,
+  minPerson: Number(item.min_person || 1),
   duration: String(item.duration || 'Full Day'),
   overview: String(item.short_description || item.overview || ''),
   highlights: Array.isArray(item.highlights) ? item.highlights : [],
@@ -27,7 +29,6 @@ const mapTour = (item: any): Tour => ({
   reviews: item.reviews || 0,
   starting_price: item.starting_price,
   short_description: item.short_description,
-  slug: item.slug,
   location: item.location,
   category_id: item.category_id,
   seo_title: item.seo_title || '',
@@ -61,6 +62,7 @@ export interface Tour {
   location: string;
   starting_price: number;
   price?: string;
+  minPerson: number;
   image?: string;
   image_alt?: string;
   seo_title: string;
@@ -130,7 +132,6 @@ export interface Package {
 }
 
 // ─── Categories ────────────────────────────────────────────────────────────
-
 export const getCategories = async (): Promise<Category[]> => {
   try {
     const { data, error } = await supabase
@@ -165,7 +166,6 @@ export const getCategoryBySlug = async (slug: string): Promise<Category | null> 
 };
 
 // ─── Tours ─────────────────────────────────────────────────────────────────
-
 export const getTours = async (): Promise<Tour[]> => {
   try {
     const { data, error } = await supabase
@@ -185,11 +185,9 @@ export const getTours = async (): Promise<Tour[]> => {
 
 export const getToursByCategory = async (categorySlug: string): Promise<Tour[]> => {
   try {
-    // Step 1: resolve slug → id
     const category = await getCategoryBySlug(categorySlug);
     if (!category) return [];
 
-    // Step 2: fetch tours by category_id
     const { data, error } = await supabase
       .from('tours')
       .select(CATEGORY_SELECT)
@@ -260,7 +258,6 @@ export const getSignatureTours = async (limit: number = 4): Promise<Tour[]> => {
   }
 };
 
-// Replaces getSignatureToursByCategory — no hardcoded IDs
 export const getFeaturedTourPerCategory = async (): Promise<Tour[]> => {
   try {
     const categories = await getCategories();
@@ -301,7 +298,6 @@ export const getPopularTours = async (limit: number = 3): Promise<Tour[]> => {
       return (data || []).map(mapTour);
     }
 
-    // Top up with non-featured if not enough featured
     const remaining = limit - (data?.length || 0);
     const { data: recentData, error: recentError } = await supabase
       .from('tours')
@@ -343,7 +339,6 @@ export const getTopTourByCategory = async (categorySlug: string): Promise<Tour |
 };
 
 // ─── Adventures ────────────────────────────────────────────────────────────
-
 export const getAdventures = async (): Promise<Adventure[]> => {
   try {
     const category = await getCategoryBySlug('adventures');
@@ -388,7 +383,6 @@ export const getAdventures = async (): Promise<Adventure[]> => {
 };
 
 // ─── Packages ──────────────────────────────────────────────────────────────
-
 export const getPackages = async (): Promise<Package[]> => {
   try {
     const { data, error } = await supabase
@@ -426,7 +420,6 @@ export const getPackages = async (): Promise<Package[]> => {
 };
 
 // ─── Gallery ───────────────────────────────────────────────────────────────
-
 export const getGalleryImages = async (): Promise<{ url: string; title: string }[]> => {
   try {
     const { data, error } = await supabase
@@ -436,15 +429,16 @@ export const getGalleryImages = async (): Promise<{ url: string; title: string }
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    if (data && data.length > 0) return data.map((item: any) => ({
-      url: item.image_url,
-      title: item.title || '',
-    }));
+    if (data && data.length > 0) {
+      return data.map((item: any) => ({
+        url: item.image_url,
+        title: item.title || '',
+      }));
+    }
   } catch {
     // fall through to bucket fallback
   }
 
-  // Fallback: list from bucket if no gallery table
   return Array.from({ length: 6 }, (_, i) => ({
     url: `${BUCKET_URL}/gallery/gallery-${i + 1}.jpg`,
     title: '',
@@ -452,7 +446,6 @@ export const getGalleryImages = async (): Promise<{ url: string; title: string }
 };
 
 // ─── Misc ──────────────────────────────────────────────────────────────────
-
 export const getCuratedTours = async (): Promise<any[]> => {
   try {
     const { data, error } = await supabase.rpc('get_curated_tours');
@@ -482,7 +475,7 @@ export const getTourByMood = async (mood: string): Promise<any> => {
   }
 };
 
-// Kept for backwards compatibility — wraps getTopTourByCategory
+// Kept for backwards compatibility
 export const getTopAdventure = () => getTopTourByCategory('adventures');
 export const getTopCulturalTour = () => getTopTourByCategory('full-day');
 export const getTopCombinationTour = () => getTopTourByCategory('combination');

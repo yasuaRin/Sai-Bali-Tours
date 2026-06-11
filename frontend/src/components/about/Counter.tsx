@@ -4,10 +4,11 @@ interface CounterProps {
   value: number;
   suffix?: string;
   duration?: number;
+  startFrom?: number;
 }
 
-const Counter: React.FC<CounterProps> = ({ value, suffix = '', duration = 2000 }) => {
-  const [count, setCount] = useState(0);
+const Counter: React.FC<CounterProps> = ({ value, suffix = '', duration = 2000, startFrom = 0 }) => {
+  const [count, setCount] = useState(startFrom);
   const [hasStarted, setHasStarted] = useState(false);
   const counterRef = useRef<HTMLDivElement>(null);
 
@@ -39,7 +40,7 @@ const Counter: React.FC<CounterProps> = ({ value, suffix = '', duration = 2000 }
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      const currentValue = Math.round(eased * value);
+      const currentValue = Math.round(startFrom + eased * (value - startFrom));
       setCount(currentValue);
 
       if (progress < 1) {
@@ -51,7 +52,7 @@ const Counter: React.FC<CounterProps> = ({ value, suffix = '', duration = 2000 }
 
     animationFrame = requestAnimationFrame(animate);
     return () => { if (animationFrame) cancelAnimationFrame(animationFrame); };
-  }, [hasStarted, value, duration]);
+  }, [hasStarted, value, duration, startFrom]);
 
   return (
     <div ref={counterRef} className="text-3xl font-black text-brand-text">

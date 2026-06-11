@@ -27,7 +27,7 @@ export interface Award {
   year: string;
   title: string;
   organization: string;
-  description: string;   // ← was missing in the original; the Awards grid renders this
+  description: string | null;
   icon_type: string;
   image_url: string;
   sort_order: number;
@@ -94,7 +94,6 @@ export const getAwards = async (): Promise<Award[]> => {
     .from('awards')
     .select('id, year, title, organization, description, icon_type, image_url, sort_order')
     .order('sort_order', { ascending: true });
-
   if (error) return handleError('awards', error, []);
   return data ?? [];
 };

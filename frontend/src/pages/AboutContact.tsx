@@ -21,7 +21,7 @@ const AboutContact: React.FC = () => {
                 Authentic <br /><span className="text-brand-orange italic">Bali Roots.</span>
               </h1>
               <p className="text-gray-400 text-lg sm:text-xl font-medium leading-relaxed">
-                Since 2008, Sai Bali Tours has been the trusted bridge between world travelers and the true spiritual essence of our island home.
+                Since 2010, Sai Bali Tours has been the trusted bridge between world travelers and the true spiritual essence of our island home.
               </p>
             </div>
             <div className="hidden lg:block relative group">

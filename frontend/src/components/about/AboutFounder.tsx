@@ -22,7 +22,7 @@ const AboutFounder: React.FC<AboutFounderProps> = ({ founderImage }) => {
             >
               <img
                 src={founderImage}
-                alt="Wayan Mudita founder of Sai Bali Tours private Bali tour company in Ubud"
+                alt="Wayan Mudita founder of Sai Bali Tours private Bali tour company in Karangasem"
                 className="w-full h-full object-cover"
               />
             </motion.div>
@@ -58,7 +58,7 @@ const AboutFounder: React.FC<AboutFounderProps> = ({ founderImage }) => {
 
             <div className="space-y-6">
               <p className="text-gray-400 text-base md:text-lg font-medium leading-relaxed text-justify">
-                Born and raised in a small village in Ubud, Bali, Wayan Mudita began his
+                Born and raised in a small village in Karangasem, Bali, Wayan Mudita began his
                 journey with a simple dream to build a trusted Bali tourism company from
                 the ground up while preserving the island's natural beauty, traditions,
                 and cultural heritage.

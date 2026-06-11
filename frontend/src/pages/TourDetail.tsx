@@ -13,14 +13,16 @@ const TourDetail: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-      getTourBySlug(id).then(data => {
-        setTour(data);
-        setLoading(false);
-      }).catch(error => {
-        console.error('Error fetching tour:', error);
-        setTour(null);
-        setLoading(false);
-      });
+      getTourBySlug(id)
+        .then(data => {
+          setTour(data);
+          setLoading(false);
+        })
+        .catch(error => {
+          console.error('Error fetching tour:', error);
+          setTour(null);
+          setLoading(false);
+        });
     }
   }, [id]);
 
@@ -36,10 +38,9 @@ const TourDetail: React.FC = () => {
 
   return (
     <div className="pt-20">
-      
       {/* Hero Section */}
       <section className="relative h-[60vh] flex items-end overflow-hidden">
-        <motion.div 
+        <motion.div
           initial={{ scale: 1.1 }}
           animate={{ scale: 1 }}
           transition={{ duration: 1.5 }}
@@ -49,7 +50,7 @@ const TourDetail: React.FC = () => {
           <div className="absolute inset-0 bg-brand-anchor/60"></div>
         </motion.div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 pb-20 w-full">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
@@ -68,7 +69,7 @@ const TourDetail: React.FC = () => {
               </div>
               <div className="flex items-center space-x-2">
                 <Tag className="text-brand-accent" size={20} />
-                <span>{tour.price}</span>
+                <span>{tour.price} USD <span className="text-sm font-normal">/ person</span></span>
               </div>
               <div className="flex items-center space-x-2">
                 <MapPin className="text-brand-accent" size={20} />
@@ -82,16 +83,14 @@ const TourDetail: React.FC = () => {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
-            
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-16">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-              >
-                <h2 className="text-3xl font-bold mb-6">Tour <span className="text-brand-orange">Overview</span></h2>
+              <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}>
+                <h2 className="text-3xl font-bold mb-6">
+                  Tour <span className="text-brand-orange">Overview</span>
+                </h2>
                 <p className="text-gray-600 leading-loose text-lg mb-8">{tour.overview}</p>
-                
+
                 {/* Accommodation Options (Conditional for Room + Tour) */}
                 {tour.hotel_options && (
                   <div className="mb-10 space-y-4">
@@ -99,7 +98,9 @@ const TourDetail: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {tour.hotel_options.map((opt, idx) => (
                         <div key={idx} className="p-6 bg-brand-anchor/5 rounded-2xl border border-brand-anchor/10">
-                          <div className="text-brand-orange font-black text-xs uppercase tracking-widest mb-2">Option {idx + 1}</div>
+                          <div className="text-brand-orange font-black text-xs uppercase tracking-widest mb-2">
+                            Option {idx + 1}
+                          </div>
                           <p className="text-brand-text font-bold text-sm mb-2">{opt.hotel}</p>
                           <div className="text-brand-orange font-black text-lg">{opt.cost}</div>
                         </div>
@@ -111,38 +112,23 @@ const TourDetail: React.FC = () => {
                 {/* Important Notes (Conditional) */}
                 {tour.notes && (
                   <div className="mt-8 p-4 bg-orange-50 border border-orange-100 rounded-xl">
-                    <p className="text-brand-orange text-xs font-black uppercase tracking-widest mb-1">Important Notes</p>
+                    <p className="text-brand-orange text-xs font-black uppercase tracking-widest mb-1">
+                      Important Notes
+                    </p>
                     <p className="text-brand-text text-sm font-medium italic">{tour.notes}</p>
                   </div>
                 )}
-
-                {/* Highlights Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-10">
-                  {tour.highlights.map((h, idx) => (
-                    <motion.div 
-                      key={h} 
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      className="flex items-center space-x-3 p-4 bg-gray-50 rounded-2xl border border-gray-100"
-                    >
-                      <div className="w-2 h-2 rounded-full bg-brand-orange"></div>
-                      <span className="font-semibold text-brand-text">{h}</span>
-                    </motion.div>
-                  ))}
-                </div>
               </motion.div>
 
               {/* Itinerary Timeline */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-              >
-                <h2 className="text-3xl font-bold mb-10">Planned <span className="text-brand-orange">Itinerary</span></h2>
+              <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}>
+                <h2 className="text-3xl font-bold mb-10">
+                  Planned <span className="text-brand-orange">Itinerary</span>
+                </h2>
                 <div className="space-y-0">
                   {tour.itinerary.map((step, idx) => (
-                    <motion.div 
-                      key={idx} 
+                    <motion.div
+                      key={idx}
                       initial={{ opacity: 0, x: -20 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.1 }}
@@ -155,7 +141,9 @@ const TourDetail: React.FC = () => {
                       <div className="pb-12 pt-0.5">
                         <div className="text-sm font-bold text-brand-orange mb-1">{step.time}</div>
                         <h4 className="text-xl font-bold text-brand-text mb-2">{step.activity}</h4>
-                        <p className="text-gray-500 text-sm italic">Professional guidance and comfortable transportation provided.</p>
+                        <p className="text-gray-500 text-sm italic">
+                          Professional guidance and comfortable transportation provided.
+                        </p>
                       </div>
                     </motion.div>
                   ))}
@@ -164,7 +152,7 @@ const TourDetail: React.FC = () => {
 
               {/* Inclusions & Exclusions */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   className="bg-green-50 rounded-3xl p-8 border border-green-100"
@@ -179,7 +167,7 @@ const TourDetail: React.FC = () => {
                     ))}
                   </ul>
                 </motion.div>
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   className="bg-red-50 rounded-3xl p-8 border border-red-100"
@@ -199,29 +187,36 @@ const TourDetail: React.FC = () => {
 
             {/* Sticky Sidebar */}
             <div className="lg:col-span-1">
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
                 className="sticky top-28 bg-white border border-gray-100 rounded-3xl p-8 shadow-2xl space-y-8"
               >
                 <div>
-                  <div className="text-gray-400 text-sm uppercase font-bold tracking-widest mb-1">Starting Price</div>
-                  <div className="text-4xl font-bold text-brand-orange">{tour.price}</div>
-                  <div className="text-gray-500 text-xs mt-2">*Price may vary based on group size</div>
+                  <div className="text-gray-400 text-sm uppercase font-bold tracking-widest mb-1">
+                    Starting Price
+                  </div>
+                  <div className="text-4xl font-bold text-brand-orange">
+                    {tour.price} USD{' '}
+                    <span className="text-lg font-normal text-gray-500">/ person</span>
+                  </div>
+                  <div className="text-gray-500 text-xs mt-2">
+                    Minimum {tour.minPerson} persons required. Price may vary based on group size.
+                  </div>
                 </div>
 
                 <div className="space-y-4">
-                  <motion.a 
+                  <motion.a
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    href="https://wa.me/628123456789" 
+                    href="https://wa.me/628123456789"
                     className="w-full flex items-center justify-center space-x-3 bg-brand-orange text-white py-5 rounded-2xl font-bold text-lg hover:bg-orange-600 transition shadow-lg shadow-orange-200"
                   >
                     <Phone size={20} />
                     <span>Book via WhatsApp</span>
                   </motion.a>
-                  <motion.button 
+                  <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className="w-full border-2 border-brand-secondary text-brand-secondary py-5 rounded-2xl font-bold hover:bg-brand-secondary hover:text-white transition"

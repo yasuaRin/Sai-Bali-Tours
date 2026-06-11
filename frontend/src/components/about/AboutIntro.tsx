@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MapPin } from 'lucide-react';
 import Counter from './Counter';
 
 interface AboutIntroProps {
@@ -35,13 +34,9 @@ const AboutIntro: React.FC<AboutIntroProps> = ({ heroImage }) => {
 
             {/* Main circle */}
             <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-72 md:h-72 lg:w-96 lg:h-96 rounded-full overflow-hidden shadow-2xl relative bg-gray-100 group flex-shrink-0">
-              {/* Gradient overlay for depth */}
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-brand-anchor/20 z-10 rounded-full" />
-              {/* Subtle border ring */}
               <div className="absolute inset-0 rounded-full border-[3px] border-brand-orange/15 z-20 pointer-events-none" />
-              {/* Inner shadow for 3D feel */}
               <div className="absolute inset-0 rounded-full shadow-[inset_0_0_40px_rgba(0,0,0,0.08)] z-20 pointer-events-none" />
-
               <img
                 src={heroImage}
                 alt="Sai Bali Tours private Bali tour operator and tourism company in Ubud, Bali"
@@ -49,17 +44,12 @@ const AboutIntro: React.FC<AboutIntroProps> = ({ heroImage }) => {
                 loading="eager"
               />
             </div>
-
-            {/* Small location dot */}
-            <div className="absolute -bottom-1 right-2 sm:-bottom-2 sm:right-4 lg:bottom-0 lg:right-6 w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full shadow-lg flex items-center justify-center z-30 border border-gray-100">
-              <MapPin size={14} className="text-brand-orange sm:w-4 sm:h-4" />
-            </div>
+            {/* ── MapPin dot removed ── */}
           </motion.div>
 
           {/* ── Text Column ── */}
           <div className="space-y-4 sm:space-y-6 lg:space-y-8">
             <header className="space-y-3 sm:space-y-4 lg:space-y-6">
-              {/* Accent line + label */}
               <div className="flex items-center space-x-3 sm:space-x-4">
                 <div className="w-8 sm:w-10 lg:w-12 h-px bg-brand-orange" />
                 <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] text-brand-orange">
@@ -67,7 +57,6 @@ const AboutIntro: React.FC<AboutIntroProps> = ({ heroImage }) => {
                 </span>
               </div>
 
-              {/* Main heading */}
               <h1
                 id="about-heading"
                 className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black text-brand-text tracking-tighter leading-tight uppercase"
@@ -85,7 +74,7 @@ const AboutIntro: React.FC<AboutIntroProps> = ({ heroImage }) => {
               <div className="h-px flex-1 bg-gradient-to-l from-brand-orange/20 to-transparent" />
             </div>
 
-            {/* Paragraphs — justified */}
+            {/* Paragraphs */}
             <div className="space-y-2 sm:space-y-3 lg:space-y-5 text-xs sm:text-sm md:text-base lg:text-lg text-gray-500 font-medium leading-relaxed text-justify">
               <p>
                 Sai Bali Tours is a licensed Bali tourism company based in Ubud, Bali,
@@ -96,25 +85,31 @@ const AboutIntro: React.FC<AboutIntroProps> = ({ heroImage }) => {
                 Operated under{' '}
                 <span className="text-brand-text font-black">PT. Bali Mertan Pertiwi</span>,
                 we have provided professional Bali tour services, trusted local guides,
-                and customized Bali vacation experiences since 2008.
+                and customized Bali vacation experiences since 2010.
               </p>
             </div>
 
             {/* Stats row */}
             <div className="flex flex-wrap items-center gap-4 sm:gap-6 lg:gap-8 pt-2 sm:pt-4">
+
+              {/* Years of Experience — counts 0 → 15 (2025 - 2010) */}
               <div className="space-y-0.5 sm:space-y-1">
-                <p className="text-lg sm:text-xl lg:text-3xl font-black text-brand-text">2008</p>
+                <Counter value={15} suffix="+" />
                 <p className="text-[7px] sm:text-[9px] lg:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   Years of Experience
                 </p>
               </div>
+
               <div className="w-px h-6 sm:h-8 lg:h-10 bg-gray-200" />
+
+              {/* Reviews — counts 0 → 500+ */}
               <div className="space-y-0.5 sm:space-y-1">
                 <Counter value={500} suffix="+" />
                 <p className="text-[7px] sm:text-[9px] lg:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   Verified Traveler Reviews
                 </p>
               </div>
+
             </div>
           </div>
 
