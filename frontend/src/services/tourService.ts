@@ -229,7 +229,7 @@ export const getTourBySlug = async (slug: string): Promise<Tour | null> => {
       .select(CATEGORY_SELECT)
       .eq('slug', slug)
       .eq('status', 'active')
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     if (!data) return null;

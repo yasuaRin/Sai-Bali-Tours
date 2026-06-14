@@ -28,7 +28,7 @@ const fadeUp = (delay = 0) => ({
 // ── Data ──────────────────────────────────────────────────────────────────────
 const CHANNELS = [
   {
-    href:    'https://wa.me/628123456789',
+    href:    'https://wa.me/628123933991',
     icon:    WhatsAppIcon,
     label:   'WhatsApp',
     sub:     'Quick bookings · reply in under 15 min',
@@ -38,7 +38,7 @@ const CHANNELS = [
     tagCol:  '#16a34a',
   },
   {
-    href:    'mailto:booking@saibalitours.com',
+    href:    'mailto:saibalitour@gmail.com',
     icon:    Mail,
     label:   'Email',
     sub:     'Custom itineraries & detailed enquiries',
@@ -48,7 +48,7 @@ const CHANNELS = [
     tagCol:  '#2563eb',
   },
   {
-    href:    'tel:+628123456789',
+    href:    'tel:+628123933991',
     icon:    Phone,
     label:   'Call Us',
     sub:     'Mon–Sun, 8 am – 8 pm Bali time',

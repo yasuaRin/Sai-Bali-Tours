@@ -1,8 +1,49 @@
-// src/types/index.ts
+// Add these at the bottom of frontend/src/types/index.ts
 
-// ========================================
-// Database Schema Types (matches Supabase)
-// ========================================
+export interface Activity {
+  time: string;
+  title: string;
+  description: string;
+  locationName: string;
+  iconType: string;
+  tips?: string;
+}
+
+export interface DayPlan {
+  dayNumber: number;
+  title: string;
+  description: string;
+  activities: Activity[];
+}
+
+export interface ItineraryResult {
+  tripName: string;
+  summary: string;
+  days: DayPlan[];
+  totalEstimatedCostUSD: number;
+  recommendations: {
+    hotels: string[];
+    packingTips: string[];
+    localEtiquette: string[];
+  };
+}
+
+export interface ItineraryParams {
+  destination: string;
+  days: number;
+  budget: string;
+  interests: string[];
+}
+
+export interface FaqMessage {
+  role: 'user' | 'bot';
+  text: string;
+}
+
+export interface FaqResponse {
+  answer: string;
+  cached: boolean;
+}
 
 export interface TourCategory {
   id: number;
